@@ -16,10 +16,10 @@
 ## 주요 기능
 
 ### ✅ Sprint 1: 크롤러
-- CISA KEV 대시보드 주기적 크롤링 (Playwright)
+- CISA KEV 데이터 수집 (HTTPS/CSV 기반)
 - 원본 정보 SQLite DB 저장
 - 마크다운 보고서 자동 생성
-- 2시간 주기 자동 스케줄러 (node-cron)
+- 실행 시 즉시 크롤링 및 설정 가능한 스케줄러 (node-cron)
 
 ### ✅ Sprint 2: 웹 대시보드
 - **보안 대시보드** — 전체 통계, 위험도 분포, 최근 CVE 현황
@@ -39,11 +39,11 @@
 
 ```
 cve-security-agent/
-├── crawler/          # Node.js + Playwright 크롤러, 스케줄러, 보고서 생성
+├── crawler/          # Node.js 기반 데이터 수집, 스케줄러, 보고서 생성
 │   ├── src/
-│   │   ├── cisa-scraper.ts      # CISA KEV 대시보드 크롤링
+│   │   ├── cisa-scraper.ts      # CISA KEV CSV 데이터 다운로드 및 파싱
 │   │   ├── db.ts                # SQLite 스키마 및 초기화
-│   │   ├── scheduler.ts         # node-cron 스케줄러 (2시간 주기)
+│   │   ├── scheduler.ts         # 실행 시 즉시 크롤링 및 설정 가능한 스케줄러
 │   │   ├── report-generator.ts  # 마크다운 보고서 자동 생성
 │   │   └── index.ts             # 진입점
 │   ├── cve.db                   # SQLite 데이터베이스
@@ -135,7 +135,7 @@ npm run mcp
 
 | 레이어 | 기술 |
 |-------|------|
-| **크롤러** | Node.js, Playwright, node-cron |
+| **크롤러** | Node.js, HTTPS/CSV, node-cron |
 | **DB** | SQLite (better-sqlite3) |
 | **웹** | Next.js 14, Tailwind CSS, React Markdown |
 | **CLI** | commander.js, chalk |
@@ -157,7 +157,7 @@ npm run mcp
 | 변수 | 설명 | 기본값 |
 |------|------|-------|
 | `CVE_DB_PATH` | SQLite 데이터베이스 경로 | `./crawler/cve.db` |
-| `CRAWL_INTERVAL_HOURS` | 크롤링 주기 (시간) | `2` |
+| `CRAWL_INTERVAL_HOURS` | 크롤링 주기 (시간) | `2` (기본값) |
 
 **NOTE**: API 키 불필요! 크롤러는 원본 정보만 수집하며, AI 에이전트가 독립적으로 분석하고 패치합니다.
 
