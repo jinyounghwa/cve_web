@@ -1,0 +1,29 @@
+{
+  "name": "cve-agent",
+  "version": "1.0.0",
+  "description": "CVE Security Agent CLI",
+  "main": "dist/index.js",
+  "bin": {
+    "cve-agent": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "dev": "ts-node src/index.ts",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["cve", "security", "cli"],
+  "author": "CVE Security Agent",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.8.0",
+    "better-sqlite3": "^12.10.0",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "cve-security-agent",
+  "version": "1.0.0",
+  "description": "CVE Security Agent — 보안 취약점 자동 감지, 기록, 패치",
+  "license": "ISC",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "workspaces": [
+    "crawler",
+    "web",
+    "cli",
+    "mcp-server"
+  ],
+  "scripts": {
+    "install-all": "npm install --workspaces",
+    "build-all": "npm run build --workspaces",
+    "crawler": "npm -w crawler run dev",
+    "crawler:build": "npm -w crawler run build",
+    "cli": "npm -w cli run dev",
+    "cli:build": "npm -w cli run build",
+    "cli:link": "npm -w cli link",
+    "mcp": "npm -w mcp-server run dev",
+    "mcp:build": "npm -w mcp-server run build",
+    "dev": "npm run crawler & npm run web",
+    "web:build": "npm -w web run build",
+    "web": "npm -w web run dev"
+  },
+  "keywords": [
+    "cve",
+    "security",
+    "vulnerability",
+    "automation",
+    "cli",
+    "mcp"
+  ]
+}
