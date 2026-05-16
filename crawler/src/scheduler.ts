@@ -1,7 +1,6 @@
 import cron from 'node-cron';
 import { scrapeCveList, scrapeCveDetail, closeBrowser } from './cisa-scraper';
 import { db } from './db';
-import { summarizeWithClaude } from './summarizer';
 
 export function startScheduler() {
   const interval = process.env.CRAWL_INTERVAL_HOURS || '2';
@@ -39,13 +38,6 @@ async function runCrawl() {
           item.rawSolution = await scrapeCveDetail(item.detailUrl);
         }
 
-        const korSummary = await summarizeWithClaude({
-          id: item.id,
-          title: item.title,
-          severity: item.severity,
-          rawSolution: item.rawSolution
-        });
-
         const stmt = db.prepare(`
           INSERT INTO cve (cve_id, title, severity, published_at, detail_url, raw_solution, kor_summary, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -58,7 +50,7 @@ async function runCrawl() {
           item.publishedAt,
           item.detailUrl,
           item.rawSolution,
-          korSummary
+          ''
         );
 
         newCount++;

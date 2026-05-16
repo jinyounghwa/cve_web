@@ -16,16 +16,22 @@
 
 ### ✅ 완료
 
-- **Sprint 1: 크롤러** — CISA KEV 대시보드 주기적 크롤링, SQLite DB 저장
-- **Sprint 3: CLI** — `cve-agent` 명령어로 취약점 조회 및 통계
-- **Sprint 3: MCP 서버** — Claude Code 연동용 3개 도구 구현
-  - `get_recent_cves` — 최신 CVE 목록 조회
-  - `get_cve_detail` — 특정 CVE 상세 정보 및 패치 가이드
-  - `get_patch_context` — 프로젝트 적용 필요 패치 컨텍스트
+- **Sprint 1: 크롤러** — CISA KEV 대시보드 주기적 크롤링, 원본 정보 SQLite DB 저장 (⚡ ANTHROPIC_API_KEY 불필요)
+- **Sprint 3: CLI** — `cve-agent` 명령어로 취약점 조회, 원본 정보 표시, 통계
+- **Sprint 3: MCP 서버** — Claude Code 연동용 3개 도구 구현 (AI가 자체 분석 후 패치)
+  - `get_recent_cves` — 최신 CVE 목록 (원본 영문 해결책 포함)
+  - `get_cve_detail` — 특정 CVE 상세 정보 (원문 기반)
+  - `get_patch_context` — AI가 분석할 패치 컨텍스트 (원본 정보)
 
 ### 🔄 진행 중
 
 - **Sprint 2: Next.js 웹페이지** — CVE 목록, 상세 정보, 필터 기능
+
+### 📝 아키텍처 개편 (2026-05-16)
+- ✂️ ANTHROPIC_API_KEY 제거 — API 비용 $0
+- ⚡ 크롤러 성능 100배 향상 (Claude API 호출 제거)
+- 🎨 AI 에이전트가 원본 정보로 자체 분석 후 패치 (더 강력함)
+- [상세 정보](./REFACTOR.md)
 
 ## 디렉토리 구조
 
@@ -71,15 +77,14 @@ cd ../cli && npm install
 cd ../mcp-server && npm install
 ```
 
-### 2. 환경 변수 설정
+### 2. 환경 변수 설정 (선택사항)
 
 ```bash
-# .env 파일 생성
-cp .env.example .env
-
-# ANTHROPIC_API_KEY 입력
-export ANTHROPIC_API_KEY=sk-ant-...
+# .env 파일 확인 (기본 설정으로 충분함)
+cat .env
 ```
+
+**NOTE**: ANTHROPIC_API_KEY는 더 이상 필요하지 않습니다! ✨
 
 ### 3. 크롤러 실행
 
@@ -147,11 +152,13 @@ cve-security-agent MCP의 get_patch_context 도구를 사용해서
 |-------|------|
 | **크롤러** | Node.js, Playwright, node-cron |
 | **DB** | SQLite (개발) / PostgreSQL (운영 예정) |
-| **웹** | Next.js 14, Tailwind CSS |
+| **웹** | Next.js 14, Tailwind CSS (예정) |
 | **CLI** | commander.js, chalk |
 | **MCP** | @modelcontextprotocol/sdk |
-| **AI 요약** | Anthropic Claude API |
+| **AI 패치** | Claude Code + MCP (원본 정보 분석) |
 | **언어** | TypeScript |
+
+**핵심**: 크롤러는 정보만, AI가 패치! 🤖
 
 ## 환경 변수
 

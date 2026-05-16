@@ -78,7 +78,8 @@ program
       console.log(`\n${chalk.gray('📋 제목:')}\n  ${row.title}`);
       console.log(`\n${chalk.gray('⚠️  위험도:')}\n  ${severityBadge(row.severity)}`);
       console.log(`\n${chalk.gray('📅 발행 일자:')}\n  ${row.published_at}`);
-      console.log(`\n${chalk.gray('🔧 한국어 패치 가이드:')}\n${row.kor_summary ? `  ${row.kor_summary.split('\n').join('\n  ')}` : '  (정보 없음)'}`);
+      console.log(`\n${chalk.gray('📝 원문 해결책:')}\n${row.raw_solution ? `  ${row.raw_solution.split('\n').join('\n  ').substring(0, 300)}${row.raw_solution.length > 300 ? '...' : ''}` : '  (정보 없음)'}`);
+      console.log(`\n${chalk.gray('💡 참고:')} Claude 에이전트가 이 정보를 분석하여 구체적인 패치 가이드를 생성합니다.`);
       console.log(`\n${chalk.gray('🔗 원문:')} ${chalk.underline(chalk.blue(row.detail_url))}`);
       console.log('');
     } catch (error) {

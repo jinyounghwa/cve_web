@@ -16,7 +16,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: 'get_recent_cves',
-      description: '최근 보안 취약점 목록을 가져옵니다. 프로젝트 보안 패치 적용 전 반드시 확인하세요.',
+      description: '최근 보안 취약점 목록을 가져옵니다. 프로젝트 보안 패치 적용 전 반드시 확인하세요. AI가 이 정보를 분석하여 패치 가이드를 생성합니다.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -71,7 +71,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const count = (args as any)?.count ?? 10;
       const severity = (args as any)?.severity;
 
-      let query = 'SELECT cve_id, title, severity, published_at, kor_summary FROM cve';
+      let query = 'SELECT cve_id, title, severity, published_at, detail_url, raw_solution FROM cve';
       const params: any[] = [];
 
       if (severity) {
@@ -117,18 +117,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const rows = db
         .prepare(
-          `SELECT cve_id, title, severity, kor_summary FROM cve
+          `SELECT cve_id, title, severity, published_at, detail_url, raw_solution FROM cve
            WHERE severity IN (${placeholders})
            ORDER BY created_at DESC LIMIT 50`
         )
         .all(...severities) as any[];
 
       const context =
-        `# 현재 적용 필요한 보안 패치 목록\n\n` +
+        `# 프로젝트 보안 패치 필요 목록\n\n` +
+        `**주의**: 아래 정보를 분석하여 각 CVE에 대한 구체적인 패치 가이드를 생성하고 프로젝트에 적용해주세요.\n\n` +
         rows
           .map(
             (r) =>
-              `## ${r.cve_id} [${r.severity}]\n**${r.title}**\n\n${r.kor_summary || '(정보 없음)'}\n`
+              `## ${r.cve_id} [${r.severity}]\n` +
+              `**${r.title}**\n\n` +
+              `- 발행일: ${r.published_at}\n` +
+              `- 상세정보: ${r.detail_url}\n` +
+              `- 원문 해결책: ${r.raw_solution || '(정보 없음)'}\n`
           )
           .join('\n---\n\n');
 
