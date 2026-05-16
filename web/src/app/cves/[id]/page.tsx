@@ -3,6 +3,20 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { CveRow } from '@/lib/db';
+import { 
+  ShieldAlert, 
+  AlertTriangle, 
+  AlertCircle, 
+  CheckCircle,
+  Briefcase,
+  ChevronLeft,
+  Info,
+  ExternalLink,
+  ClipboardList,
+  FileText,
+  ShieldCheck,
+  Globe
+} from 'lucide-react';
 
 function severityToClass(severity: string): string {
   const map: Record<string, string> = {
@@ -14,9 +28,14 @@ function severityToClass(severity: string): string {
   return map[severity] || 'medium';
 }
 
-function severityIcon(severity: string): string {
-  const map: Record<string, string> = { '긴급': '🔴', '높음': '🟠', '보통': '🟡', '낮음': '🟢' };
-  return map[severity] || '⚪';
+function getSeverityIcon(severity: string, size = 14) {
+  const map: Record<string, any> = { 
+    '긴급': <ShieldAlert size={size} className="text-red-500" />, 
+    '높음': <AlertTriangle size={size} className="text-orange-500" />, 
+    '보통': <AlertCircle size={size} className="text-yellow-500" />, 
+    '낮음': <CheckCircle size={size} className="text-green-500" /> 
+  };
+  return map[severity] || <Info size={size} />;
 }
 
 function formatDate(dateStr: string): string {
@@ -103,30 +122,30 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
           <div className="space-y-3">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="font-mono text-2xl font-extrabold text-white">{cve.cve_id}</span>
-              <span className={`severity-pill lg ${severityToClass(cve.severity)}`}>
-                {severityIcon(cve.severity)} {cve.severity}
+              <span className={`severity-pill lg ${severityToClass(cve.severity)} flex items-center gap-1.5`}>
+                {getSeverityIcon(cve.severity, 18)} {cve.severity}
               </span>
               {isRansomware && (
-                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                  🔴 랜섬웨어 캠페인 활용
+                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1.5">
+                  <ShieldAlert size={12} /> 랜섬웨어 캠페인 활용
                 </span>
               )}
               {pastDue && (
-                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                  ⚠️ 패치 기한 초과
+                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1.5">
+                  <AlertTriangle size={12} /> 패치 기한 초과
                 </span>
               )}
             </div>
             <p className="text-[#cbd5e1] text-lg leading-relaxed">{cve.title}</p>
             {(cve.vendor_project || cve.product) && (
               <p className="text-[#94a3b8] text-sm flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
+                <Briefcase size={14} />
                 {[cve.vendor_project, cve.product].filter(Boolean).join(' / ')}
               </p>
             )}
           </div>
           <Link href="/cves" className="btn-ghost text-sm flex items-center gap-2 shrink-0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+            <ChevronLeft size={16} />
             목록으로
           </Link>
         </div>
@@ -138,7 +157,7 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
           {/* Basic Info */}
           <div className="glass-card p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-[#94a3b8] mb-4 flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+              <Info size={14} />
               기본 정보
             </h2>
             <div className="space-y-4">
@@ -148,8 +167,8 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
               </div>
               <div>
                 <p className="text-xs text-[#4a5568] mb-1">위험도</p>
-                <span className={`severity-pill ${severityToClass(cve.severity)}`}>
-                  {severityIcon(cve.severity)} {cve.severity}
+                <span className={`severity-pill ${severityToClass(cve.severity)} flex items-center gap-1.5`}>
+                  {getSeverityIcon(cve.severity)} {cve.severity}
                 </span>
               </div>
               {cve.vendor_project && (
@@ -177,21 +196,22 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
               {cve.due_date && (
                 <div>
                   <p className="text-xs text-[#4a5568] mb-1">CISA 패치 기한</p>
-                  <p className={`font-semibold ${pastDue ? 'text-red-400' : 'text-yellow-400'}`}>
+                  <p className={`font-semibold flex items-center gap-1.5 ${pastDue ? 'text-red-400' : 'text-yellow-400'}`}>
                     {formatDate(cve.due_date)}
-                    {pastDue && <span className="ml-1 text-xs font-normal"> ⚠️ 기한 초과</span>}
+                    {pastDue && <AlertTriangle size={14} />}
                   </p>
                 </div>
               )}
               {cve.ransomware_use && (
                 <div>
                   <p className="text-xs text-[#4a5568] mb-1">랜섬웨어 캠페인</p>
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1.5 ${
                     isRansomware
                       ? 'bg-red-500/20 text-red-400 border border-red-500/30'
                       : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                   }`}>
-                    {isRansomware ? '🔴 활용 확인됨' : '미확인'}
+                    {isRansomware ? <ShieldAlert size={12} /> : null}
+                    {isRansomware ? '활용 확인됨' : '미확인'}
                   </span>
                 </div>
               )}
@@ -205,7 +225,7 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
           {/* References */}
           <div className="glass-card p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-[#94a3b8] mb-4 flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+              <ExternalLink size={14} />
               참고 자료
             </h2>
             <div className="space-y-3">
@@ -216,8 +236,7 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-blue-400 hover:text-blue-300 font-medium text-sm transition-colors"
                 >
-                  🔗 NVD 원문 보기
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                  <ExternalLink size={14} /> NVD 원문 보기
                 </a>
               ) : (
                 <p className="text-[#4a5568] text-sm">참고 링크가 없습니다.</p>
@@ -229,8 +248,7 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-purple-400 hover:text-purple-300 font-medium text-sm transition-colors"
                 >
-                  📋 CISA KEV 참고
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                  <ClipboardList size={14} /> CISA KEV 참고
                 </a>
               )}
             </div>
@@ -243,7 +261,7 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
           {cve.description && (
             <div className="glass-card p-6">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-[#94a3b8] mb-4 flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                <FileText size={14} />
                 취약점 설명
               </h2>
               <div className="bg-[#0a0e1a] rounded-lg p-4 border border-[#2a3455]">
@@ -255,7 +273,7 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
           {/* Raw Solution */}
           <div className="glass-card p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-[#94a3b8] mb-4 flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <ShieldCheck size={14} />
               해결 방법 (원문)
             </h2>
             <div className="bg-[#0a0e1a] rounded-lg p-4 border border-[#2a3455]">
@@ -264,7 +282,7 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
               </p>
             </div>
             <p className="text-xs text-[#4a5568] mt-3 flex items-center gap-1.5">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+              <Info size={12} />
               이 정보를 바탕으로 Claude Code 에이전트가 구체적인 패치 가이드를 생성합니다.
             </p>
           </div>
@@ -273,7 +291,7 @@ export default function CveDetailPage({ params }: { params: { id: string } }) {
           {cve.kor_summary && (
             <div className="glass-card p-6">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-[#94a3b8] mb-4 flex items-center gap-2">
-                🇰🇷 한국어 요약
+                <Globe size={14} /> 한국어 요약
               </h2>
               <div className="bg-blue-500/10 rounded-lg p-4 border border-blue-500/20">
                 <p className="text-[#cbd5e1] leading-7 text-sm">{cve.kor_summary}</p>

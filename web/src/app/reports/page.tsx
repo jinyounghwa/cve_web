@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { FileText } from 'lucide-react';
 
 export default function ReportsPage() {
   const [dates, setDates] = useState<string[]>([]);
@@ -115,7 +116,9 @@ export default function ReportsPage() {
           </div>
         ) : (
           <div className="text-center py-16 space-y-4">
-            <div className="text-4xl">📄</div>
+            <div className="flex justify-center">
+              <FileText size={48} className="text-[#2a3455]" />
+            </div>
             <p className="text-[#4a5568]">
               {dates.length === 0
                 ? '아직 생성된 보고서가 없습니다. 크롤러를 먼저 실행해주세요.'

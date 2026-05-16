@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
+import { Shield } from 'lucide-react';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -25,9 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="flex items-center justify-between">
                 <Link href="/" className="flex items-center gap-3 group">
                   <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
+                    <Shield size={20} className="text-white" strokeWidth={2.5} />
                   </div>
                   <div>
                     <span className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">

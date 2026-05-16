@@ -4,6 +4,16 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import type { CveRow } from '@/lib/db';
+import { 
+  Search, 
+  ChevronLeft, 
+  ChevronRight, 
+  ClipboardList, 
+  AlertOctagon, 
+  AlertTriangle, 
+  AlertCircle, 
+  CheckCircle 
+} from 'lucide-react';
 
 const SEVERITIES = ['전체', '긴급', '높음', '보통', '낮음'];
 const PAGE_SIZE = 20;
@@ -102,9 +112,7 @@ export default function CveListContent({ severity: selectedSeverity }: { severit
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Search */}
           <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a5568]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a5568]" size={16} />
             <input
               type="text"
               placeholder="CVE ID, 제목, 해결책으로 검색..."
@@ -124,11 +132,11 @@ export default function CveListContent({ severity: selectedSeverity }: { severit
                   onClick={() => setSeverity(severity)}
                   className={`btn-ghost text-xs ${isActive ? 'active' : ''}`}
                 >
-                  {severity === '전체' && '📋 '}
-                  {severity === '긴급' && '🔴 '}
-                  {severity === '높음' && '🟠 '}
-                  {severity === '보통' && '🟡 '}
-                  {severity === '낮음' && '🟢 '}
+                  {severity === '전체' && <ClipboardList size={14} className="mr-1.5" />}
+                  {severity === '긴급' && <AlertOctagon size={14} className="mr-1.5 text-red-500" />}
+                  {severity === '높음' && <AlertTriangle size={14} className="mr-1.5 text-orange-500" />}
+                  {severity === '보통' && <AlertCircle size={14} className="mr-1.5 text-yellow-500" />}
+                  {severity === '낮음' && <CheckCircle size={14} className="mr-1.5 text-green-500" />}
                   {severity}
                 </button>
               );
@@ -189,9 +197,9 @@ export default function CveListContent({ severity: selectedSeverity }: { severit
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="btn-ghost text-xs disabled:opacity-30 disabled:cursor-not-allowed"
+                className="btn-ghost px-2 disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                ← 이전
+                <ChevronLeft size={16} />
               </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const start = Math.max(1, Math.min(page - 2, totalPages - 4));
@@ -210,9 +218,9 @@ export default function CveListContent({ severity: selectedSeverity }: { severit
               <button
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
-                className="btn-ghost text-xs disabled:opacity-30 disabled:cursor-not-allowed"
+                className="btn-ghost px-2 disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                다음 →
+                <ChevronRight size={16} />
               </button>
             </div>
           </div>
