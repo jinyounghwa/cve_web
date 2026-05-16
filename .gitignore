@@ -6,6 +6,8 @@ node_modules/
 # Distribution
 dist/
 build/
+.next/
+
 
 # Environment
 .env
@@ -14,6 +16,9 @@ build/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
+*.db.bak
 *.sqlite
 *.sqlite3
 cve-report/
