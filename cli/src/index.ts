@@ -113,6 +113,31 @@ program
   });
 
 program
+  .command('report [date]')
+  .description('크롤러 실행 보고서 조회 (형식: YYYY-MM-DD)')
+  .action((date) => {
+    const fs = require('fs');
+    const path = require('path');
+
+    try {
+      const reportDate = date || new Date().toISOString().split('T')[0];
+      const reportPath = path.join(__dirname, '..', '..', 'crawler', 'cve-report', `CVE-Report-${reportDate}.md`);
+
+      if (!fs.existsSync(reportPath)) {
+        console.log(chalk.red(`❌ 보고서를 찾을 수 없습니다: ${reportDate}`));
+        console.log(chalk.gray('  형식: cve-agent report YYYY-MM-DD'));
+        process.exit(1);
+      }
+
+      const content = fs.readFileSync(reportPath, 'utf-8');
+      console.log(content);
+    } catch (error) {
+      console.error(chalk.red('보고서 조회 오류:'), error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('stats')
   .description('CVE 통계')
   .action(() => {

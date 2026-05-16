@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { scrapeCveList, scrapeCveDetail, closeBrowser } from './cisa-scraper';
 import { db } from './db';
+import { generateReport } from './report-generator';
 
 export function startScheduler() {
   const interval = process.env.CRAWL_INTERVAL_HOURS || '2';
@@ -61,6 +62,13 @@ async function runCrawl() {
     }
 
     console.log(`[CVE-Agent] 크롤링 완료: 신규 ${newCount}개, 기존 ${skipCount}개`);
+
+    // 보고서 생성
+    try {
+      await generateReport();
+    } catch (reportError) {
+      console.error('[CVE-Agent] 보고서 생성 오류:', reportError);
+    }
   } catch (error) {
     console.error('[CVE-Agent] 크롤링 오류:', error);
   }

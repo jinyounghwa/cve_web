@@ -16,6 +16,7 @@ build/
 *.db
 *.sqlite
 *.sqlite3
+cve-report/
 
 # IDE
 .vscode/

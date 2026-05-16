@@ -17,11 +17,16 @@
 ### ✅ 완료
 
 - **Sprint 1: 크롤러** — CISA KEV 대시보드 주기적 크롤링, 원본 정보 SQLite DB 저장 (⚡ ANTHROPIC_API_KEY 불필요)
-- **Sprint 3: CLI** — `cve-agent` 명령어로 취약점 조회, 원본 정보 표시, 통계
+- **Sprint 3: CLI** — `cve-agent` 명령어로 취약점 조회, 원본 정보 표시, 통계, **보고서 조회**
 - **Sprint 3: MCP 서버** — Claude Code 연동용 3개 도구 구현 (AI가 자체 분석 후 패치)
   - `get_recent_cves` — 최신 CVE 목록 (원본 영문 해결책 포함)
   - `get_cve_detail` — 특정 CVE 상세 정보 (원문 기반)
   - `get_patch_context` — AI가 분석할 패치 컨텍스트 (원본 정보)
+- **📊 보고서 자동 생성** — 크롤러 실행 후 마크다운 보고서 자동 생성
+  - 위험도별 분포 통계
+  - 우선순위별 조치 가이드
+  - 전체 CVE 목록 및 상세 정보
+  - 파일명: `CVE-Report-YYYY-MM-DD.md`
 
 ### 🔄 진행 중
 
@@ -111,9 +116,32 @@ npm -w cli run dev list --severity 긴급
 # 통계 보기
 npm -w cli run dev stats
 
+# 크롤러 실행 보고서 조회 (오늘 날짜)
+npm -w cli run dev report
+
+# 특정 날짜 보고서 조회
+npm -w cli run dev report 2026-05-16
+
 # JSON 내보내기 (AI 에이전트용)
 npm -w cli run dev export
 ```
+
+### ✨ 보고서 자동 생성 기능
+
+크롤러 실행 후 자동으로 마크다운 보고서가 생성됩니다:
+
+```
+cve-report/
+├── CVE-Report-2026-05-16.md  ← 크롤링 날짜 기준
+├── CVE-Report-2026-05-15.md
+└── CVE-Report-2026-05-14.md
+```
+
+**보고서 내용**:
+- 📊 요약 통계 (전체 CVE 수, 위험도별 분포)
+- 🚨 우선순위별 조치 (긴급/높음/보통/낮음)
+- 📋 전체 CVE 목록 (테이블)
+- 🔍 상세 정보 (CVE별 제목, 위험도, 링크, 해결책)
 
 ### 5. MCP 서버 실행
 
