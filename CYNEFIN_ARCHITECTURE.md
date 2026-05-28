@@ -60,31 +60,42 @@ cve-security-agent/
 ### 3.1 DIP 차등 적용
 
 ```
-                    ┌─────────────────┐
-                    │     shared      │
-                    │  (인터페이스)    │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-              ▼              ▼              ▼
-        ┌─────────┐   ┌─────────┐   ┌──────────┐
-        │ crawler │   │   cli   │   │mcp-server│
-        │ (Complex)│   │(Comp.) │   │ (Comp.)  │
-        └─────────┘   └─────────┘   └──────────┘
-              │
-              ▼
-        ┌─────────┐
-        │   web   │
-        │ (Clear) │
-        └─────────┘
+                    ┌──────────────────────┐
+                    │       shared          │
+                    │  ICveRepository       │  ← Complicated 인터페이스
+                    │  IEventBus            │  ← Complex 인터페이스
+                    │  SqliteRepository     │  ← 어댑터 (진입점에서만 생성)
+                    │  InMemoryEventBus     │  ← 어댑터 (진입점에서만 생성)
+                    │  CircuitBreaker       │  ← Chaotic
+                    │  calcSeverity/parseCsv│  ← Clear 순수 함수
+                    └──────────┬───────────┘
+                               │
+            ┌──────────────────┼──────────────────┐
+            │                  │                  │
+            ▼                  ▼                  ▼
+      ┌───────────┐   ┌───────────┐   ┌───────────┐
+      │  crawler  │   │    cli    │   │mcp-server │
+      │ (Complex) │   │(Comp.)    │   │ (Comp.)   │
+      │ IEventBus │   │ICveRepo   │   │ICveRepo   │
+      │ ICveRepo  │   │           │   │           │
+      └─────┬─────┘   └───────────┘   └───────────┘
+            │
+            ▼
+      ┌───────────┐
+      │    web    │
+      │  (Clear)  │
+      │ singleton │
+      │ICveRepo   │
+      └───────────┘
 ```
 
 **규칙**:
-- 모든 모듈은 `shared`의 **인터페이스**에만 의존
-- `shared`의 구체적 구현(SqliteRepository)은 진입점에서만 생성
+- 모든 모듈은 `shared`의 **인터페이스**(`ICveRepository`, `IEventBus`)에만 의존
+- `shared`의 구체적 구현(SqliteRepository, InMemoryEventBus)은 **진입점**에서만 생성
 - Clear/Complicated 영역은 DIP 최소 적용 (성능 오버헤드 방지)
 - Complex/Chaotic 영역에 DIP 집중 투자
+- Web API는 **싱글톤** Repository로 요청 간 재사용 (커넥션 낭비 방지)
+- Crawler의 Repository는 **스케줄러 수명 주기** 동안 재사용
 
 ### 3.2 Bounded Context 통신 방식
 
@@ -135,16 +146,20 @@ cve-security-agent/
 
 ---
 
-## 6. Before vs After
+## 6. Before vs After (2차 검토 반영)
 
-| 항목 | Before | After |
-|------|--------|-------|
+| 항목 | Before | After (2차 검토) |
+|------|--------|------------------|
 | DB 접근 | 4곳에서 직접 `better-sqlite3` import | `ICveRepository` 인터페이스 → `SqliteRepository` |
+| Web DB 연결 | 요청마다 새 커넥션 생성/해제 | **싱글톤** 재사용 (`web/src/lib/repository.ts`) |
+| Crawler DB 연결 | 크롤링마다 새 커넥션 생성/해제 | **스케줄러 수명 주기** 동안 재사용 |
 | 네트워크 | 재시도 없음, 장애 시 크롤링 실패 | 서킷 브레이커 + 지수 백오프 재시도 |
-| 모듈 결합 | 직접 함수 호출 (동기적) | 이벤트 버스 (비동기 분리) |
+| 모듈 결합 | 직접 함수 호출 (동기적) | `IEventBus` 인터페이스 → `InMemoryEventBus` |
+| 이벤트 타입 | `data: any` (타입 안전성 없음) | **`CveEventPayloads` 맵**으로 타입 안전 |
 | 도메인 로직 | 각 모듈에 분산 | `shared/domain/`에 집중 (순수 함수) |
 | DB 교체 | SQLite 강결합, 교체 불가 | 인터페이스 분리로 PostgreSQL 등 교체 가능 |
-| 테스트 | DB 모킹 어려움 | `ICveRepository` 모킹으로 단위 테스트 용이 |
+| 테스트 | DB 모킹 어려움 | `ICveRepository`/`IEventBus` 모킹으로 단위 테스트 용이 |
+| 잔류 파일 | `crawler/src/db.ts` deprecated 방치 | 삭제 완료 |
 
 ---
 

@@ -1,17 +1,12 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
+import { getRepository } from '@/lib/repository';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const dbPath = process.env.CVE_DB_PATH || path.join(process.cwd(), '..', 'crawler', 'cve.db');
-
-    const { createReadOnlyRepository } = require('shared');
-    const repo = createReadOnlyRepository(dbPath);
-
+    const repo = getRepository();
     const { total, stats } = repo.getStats();
-    repo.close();
 
     return NextResponse.json({ stats, total });
   } catch (error) {

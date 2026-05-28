@@ -13,6 +13,8 @@ import {
 } from 'shared';
 
 const dbPath = process.env.CVE_DB_PATH || path.join(__dirname, '..', '..', 'crawler', 'cve.db');
+
+// MCP 서버는 stdio 수명과 동일하게 Repository 유지
 const repo: ICveRepository = createReadOnlyRepository(dbPath);
 
 const server = new Server(

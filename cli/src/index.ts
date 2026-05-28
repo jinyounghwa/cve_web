@@ -14,6 +14,9 @@ import {
 } from 'shared';
 
 const dbPath = process.env.CVE_DB_PATH || path.join(__dirname, '..', '..', 'crawler', 'cve.db');
+
+// CLI는 프로세스 수명과 동일하게 Repository 유지
+// process.exit() 시 자동 해제되므로 명시적 close 불필요
 const repo: ICveRepository = createReadOnlyRepository(dbPath);
 
 const program = new Command();

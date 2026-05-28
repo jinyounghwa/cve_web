@@ -24,8 +24,9 @@ export { CircuitBreaker, CircuitBreakerOpenError } from './resilience/circuit-br
 export { withRetry } from './resilience/retry';
 
 // --- Complex 영역: 이벤트 기반 분리 ---
-export type { CveEventType, CveEvent } from './events/types';
-export { EventBus } from './events/event-bus';
+export type { CveEventType, CveEvent, CveEventPayloads } from './events/types';
+export type { IEventBus } from './events/event-bus';
+export { InMemoryEventBus, EventBus } from './events/event-bus';
 
 // --- 편의 팩토리 ---
 import { SqliteRepository } from './adapters/SqliteRepository';

@@ -9,7 +9,8 @@ import {
   createRepository,
   calcSeverity,
   parseCsv,
-  EventBus,
+  InMemoryEventBus,
+  type IEventBus,
   type ICveRepository,
   type UpsertParams,
   type CisaCsvItem,
@@ -18,8 +19,8 @@ import { fetchCisaCsv } from './cisa-scraper';
 import { generateReport } from './report-generator';
 
 export interface SchedulerDeps {
-  eventBus: EventBus;
-  /** 테스트/단독 실행 시 주입 가능 (기본: shared SqliteRepository) */
+  eventBus: IEventBus;
+  /** 테스트 시 주입 가능. 미제공 시 내부에서 생성. */
   repository?: ICveRepository;
 }
 
@@ -28,19 +29,28 @@ export function startScheduler(deps: SchedulerDeps) {
   const interval = process.env.CRAWL_INTERVAL_HOURS || '2';
   const cronExpr = `0 */${interval} * * *`;
 
+  // Repository는 스케줄러 수명 주기 동안 재사용
+  const dbPath = process.env.CVE_DB_PATH || path.join(__dirname, '..', 'cve.db');
+  const repo = deps.repository ?? createRepository(dbPath);
+
   console.log(`[CVE-Agent] 크롤러 스케줄러 시작 (${interval}시간 간격)`);
 
-  cron.schedule(cronExpr, () => runCrawl(deps));
+  cron.schedule(cronExpr, () => runCrawl({ eventBus, repository: repo }));
 
   // 초기 실행 (1초 후)
-  setTimeout(() => runCrawl(deps), 1000);
+  setTimeout(() => runCrawl({ eventBus, repository: repo }), 1000);
 }
 
 export async function runCrawl(deps: SchedulerDeps) {
-  const { eventBus } = deps;
+  const { eventBus, repository: repo } = deps;
+
+  if (!repo) {
+    console.error('[CVE-Agent] Repository가 주입되지 않았습니다.');
+    return;
+  }
 
   console.log('[CVE-Agent] 크롤링 시작:', new Date().toISOString());
-  eventBus.emit('crawl:started');
+  eventBus.emit('crawl:started', undefined);
 
   try {
     // 1. CSV 다운로드 (Chaotic 영역 — 서킷 브레이커 보호)
@@ -61,9 +71,6 @@ export async function runCrawl(deps: SchedulerDeps) {
     console.log(`[CVE-Agent] ${items.length}개 CVE 항목 파싱 완료`);
 
     // 3. DB 저장 (Complicated 영역 — 인터페이스 기반)
-    const dbPath = process.env.CVE_DB_PATH || path.join(__dirname, '..', 'cve.db');
-    const repo = deps.repository ?? createRepository(dbPath);
-
     const upsertItems: UpsertParams[] = items.map(mapToUpsert);
     const result = repo.upsertMany(upsertItems);
 
@@ -86,12 +93,9 @@ export async function runCrawl(deps: SchedulerDeps) {
       newCount: result.newCount,
       updateCount: result.updateCount,
     });
-
-    // deps에서 주입받지 않은 자체 생성 repo는 닫기
-    if (!deps.repository) repo.close();
   } catch (error) {
     console.error('[CVE-Agent] 크롤링 오류:', error);
-    eventBus.emit('crawl:error', { error });
+    eventBus.emit('crawl:error', { error: error instanceof Error ? error : new Error(String(error)) });
   }
 }
 
@@ -117,14 +121,17 @@ function mapToUpsert(item: CisaCsvItem): UpsertParams {
 
 // 단독 실행 지원
 if (require.main === module) {
-  const { EventBus } = require('shared');
-  const standaloneBus = new EventBus();
+  const standaloneBus = new InMemoryEventBus();
 
-  standaloneBus.on('crawl:completed', (e: any) => {
+  standaloneBus.on('crawl:completed', (e) => {
     console.log(`[CVE-Agent] 1회 크롤링 완료: 신규 ${e.data.newCount}, 업데이트 ${e.data.updateCount}`);
   });
 
-  runCrawl({ eventBus: standaloneBus }).then(() => {
+  const dbPath = process.env.CVE_DB_PATH || path.join(__dirname, '..', 'cve.db');
+  const repo = createRepository(dbPath);
+
+  runCrawl({ eventBus: standaloneBus, repository: repo }).then(() => {
+    repo.close();
     console.log('[CVE-Agent] 종료');
     process.exit(0);
   });

@@ -4,13 +4,14 @@
 // ============================================================================
 
 import dotenv from 'dotenv';
-import { EventBus } from 'shared';
+import { InMemoryEventBus } from 'shared';
+import type { IEventBus } from 'shared';
 import { startScheduler } from './scheduler';
 
 dotenv.config();
 
 // 이벤트 버스 생성 (시스템 전역 공유)
-const eventBus = new EventBus();
+const eventBus: IEventBus = new InMemoryEventBus();
 
 // 이벤트 구독 — 로깅
 eventBus.on('crawl:started', () => {
