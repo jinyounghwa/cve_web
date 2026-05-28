@@ -196,3 +196,23 @@ eventBus.on('cve:upserted', (e) => {
   }
 });
 ```
+
+---
+
+## 8. 커네빈 프레임워크 아키텍처 보강 사항 (3차 개편)
+
+### 8.1 Chaotic 영역: 네트워크 예외 엄격화
+- **기존 문제**: CISA API 호출 시 500, 404 등 비정상 HTTP 응답 코드가 와도 에러를 던지지 않고 HTML 에러 페이지를 그대로 반환하여, 서킷 브레이커와 재시도 로직이 정상 작동하지 않음.
+- **보강**: `fetchCsvOverHttp`에서 HTTP 응답 상태 코드가 `200`이 아닐 경우 예외를 명시적으로 던지도록 수정하여, Chaotic 영역의 회로 차단기(Circuit Breaker)와 재시도(Retry)가 즉각 대응할 수 있도록 변경.
+
+### 8.2 Complex 영역: 이벤트 텔레메트리 (Sense 강화)
+- **기존 문제**: 인과관계를 사후에 파악해야 하는 복잡계 영역임에도 불구하고 이벤트 발생 흐름에 대한 추적 수단이 없어 로깅 외에 상태 분석이 어려웠음.
+- **보강**: `IEventBus` 및 `InMemoryEventBus`에 최근 100개의 이벤트 흐름을 보관하는 `history` 필드 및 `getHistory()`, `clearHistory()` 메서드를 추가하여 런타임에 에이전트의 상태를 "관찰 및 감지(Sense)"할 수 있는 장치 마련.
+
+### 8.3 영역별 단위 테스트 구축
+각 영역의 예측 가능성 및 견고함을 입증하기 위해 다음과 같이 테스트 환경을 분리하여 구현:
+- **Clear 영역 테스트**: CSV 파서 및 위험도 산출 공식 등 결정론적이고 단순한 도메인 로직에 대한 테스트 케이스 100% 검증 (`shared/src/domain/clear.test.ts`).
+- **Complicated 영역 테스트**: 모킹 대신 `:memory:` SQLite를 활용하여 DB 리포지토리의 조회, 갱신, 트랜잭션 무결성을 격리된 환경에서 검증 (`shared/src/adapters/complicated.test.ts`).
+- **Complex 영역 테스트**: 이벤트 버스의 안전한 전파, 리스너 에러 격리(에러 전파 차단), 텔레메트리 이력 보존 기능을 검증 (`shared/src/events/complex.test.ts`).
+- **Chaotic 영역 테스트**: 연속 실패 임계치 도달에 따른 서킷 브레이커의 상태 전이(`CLOSED` -> `OPEN` -> `HALF_OPEN`)와 폴백(Fallback) 처리, 그리고 지수 백오프 재시도 성공/실패 여부를 모의 타이머를 통해 완벽히 검증 (`shared/src/resilience/chaotic.test.ts`).
+

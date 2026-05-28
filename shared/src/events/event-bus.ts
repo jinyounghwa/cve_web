@@ -16,6 +16,8 @@ export interface IEventBus {
   off<T extends CveEventType>(eventType: T, handler: (event: CveEvent<T>) => void): void;
   emit<T extends CveEventType>(eventType: T, data: CveEventPayloads[T]): void;
   clear(): void;
+  getHistory(): CveEvent<any>[];
+  clearHistory(): void;
 }
 
 // ============================================================================
@@ -39,6 +41,8 @@ type AnyHandler = (event: CveEvent<any>) => void;
  */
 export class InMemoryEventBus implements IEventBus {
   private handlers = new Map<CveEventType, AnyHandler[]>();
+  private history: CveEvent<any>[] = [];
+  private readonly maxHistorySize = 100;
 
   on<T extends CveEventType>(eventType: T, handler: (event: CveEvent<T>) => void): void {
     const existing = this.handlers.get(eventType) ?? [];
@@ -58,6 +62,13 @@ export class InMemoryEventBus implements IEventBus {
 
   emit<T extends CveEventType>(eventType: T, data: CveEventPayloads[T]): void {
     const event: CveEvent<T> = { type: eventType, timestamp: new Date(), data };
+    
+    // 텔레메트리: 최근 100개 이벤트를 히스토리에 보관
+    this.history.push(event);
+    if (this.history.length > this.maxHistorySize) {
+      this.history.shift();
+    }
+
     const handlers = this.handlers.get(eventType) ?? [];
     for (const handler of handlers) {
       try {
@@ -68,8 +79,17 @@ export class InMemoryEventBus implements IEventBus {
     }
   }
 
+  getHistory(): CveEvent<any>[] {
+    return [...this.history];
+  }
+
+  clearHistory(): void {
+    this.history = [];
+  }
+
   clear(): void {
     this.handlers.clear();
+    this.history = [];
   }
 }
 

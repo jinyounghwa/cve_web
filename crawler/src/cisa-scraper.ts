@@ -42,6 +42,10 @@ function fetchCsvOverHttp(): Promise<string> {
             return doRequest(location, redirectCount + 1);
           }
         }
+        if (res.statusCode !== 200) {
+          res.resume();
+          return reject(new Error(`HTTP status code ${res.statusCode}`));
+        }
         let data = '';
         res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => resolve(data));
