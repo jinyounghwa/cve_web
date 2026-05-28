@@ -1,4 +1,5 @@
 // Type definitions for CVE data
+// shared 패키지와 동일한 타입 (Next.js 번들링 이슈로 로컬 유지)
 export interface CveRow {
   id: number;
   cve_id: string;
@@ -9,7 +10,6 @@ export interface CveRow {
   raw_solution: string;
   kor_summary: string | null;
   created_at: string;
-  // Extended fields (added in schema v2)
   vendor_project?: string;
   product?: string;
   due_date?: string;

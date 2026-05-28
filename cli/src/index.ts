@@ -1,12 +1,20 @@
 #!/usr/bin/env node
+// ============================================================================
+// CVE Agent CLI
+// 커네빈 Complicated 영역: ICveRepository 인터페이스에만 의존
+// ============================================================================
 
 import { Command } from 'commander';
-import Database from 'better-sqlite3';
 import chalk from 'chalk';
 import path from 'path';
+import {
+  createReadOnlyRepository,
+  type ICveRepository,
+  type CveRow,
+} from 'shared';
 
 const dbPath = process.env.CVE_DB_PATH || path.join(__dirname, '..', '..', 'crawler', 'cve.db');
-const db: Database.Database = new Database(dbPath, { readonly: true });
+const repo: ICveRepository = createReadOnlyRepository(dbPath);
 
 const program = new Command();
 
@@ -21,19 +29,11 @@ program
   .option('-n, --count <number>', '조회 개수', '10')
   .option('-s, --severity <level>', '위험도 필터 (긴급/높음/보통/낮음)')
   .action((opts) => {
-    let query = 'SELECT cve_id, title, severity, published_at, created_at FROM cve';
-    const params: any[] = [];
-
-    if (opts.severity) {
-      query += ' WHERE severity = ?';
-      params.push(opts.severity);
-    }
-
-    query += ' ORDER BY created_at DESC LIMIT ?';
-    params.push(Number(opts.count));
-
     try {
-      const rows = db.prepare(query).all(...params) as any[];
+      const limit = Number(opts.count);
+      const rows: CveRow[] = opts.severity
+        ? repo.findBySeverity(opts.severity, limit)
+        : repo.findAll(limit);
 
       if (rows.length === 0) {
         console.log(chalk.yellow('조회된 CVE가 없습니다.'));
@@ -42,13 +42,7 @@ program
 
       rows.forEach(row => {
         const color = severityColor(row.severity);
-        const iconMap: Record<string, string> = {
-          '긴급': '🔴',
-          '높음': '🟠',
-          '보통': '🟡',
-          '낮음': '🟢'
-        };
-        const icon = iconMap[row.severity] || '⚪';
+        const icon = severityIcon(row.severity);
         console.log(`${icon} ${(chalk as any)[color](`[${row.severity}]`)} ${row.cve_id} - ${row.title}`);
       });
 
@@ -64,7 +58,7 @@ program
   .description('CVE 상세 및 한국어 패치 가이드')
   .action((cveId) => {
     try {
-      const row = db.prepare('SELECT * FROM cve WHERE cve_id = ?').get(cveId) as any;
+      const row = repo.findById(cveId);
 
       if (!row) {
         console.log(chalk.red(`❌ CVE ${cveId}를 찾을 수 없습니다.`));
@@ -93,16 +87,17 @@ program
   .description('JSON 형식으로 출력 (에이전트 연동용)')
   .action((cveId) => {
     try {
-      let rows: any[];
+      let rows: CveRow[];
 
       if (cveId) {
-        rows = [db.prepare('SELECT * FROM cve WHERE cve_id = ?').get(cveId)];
-        if (!rows[0]) {
+        const found = repo.findById(cveId);
+        if (!found) {
           console.error(chalk.red(`CVE ${cveId} 를 찾을 수 없습니다.`));
           process.exit(1);
         }
+        rows = [found];
       } else {
-        rows = db.prepare('SELECT * FROM cve ORDER BY created_at DESC LIMIT 50').all() as any[];
+        rows = repo.findAll(50);
       }
 
       console.log(JSON.stringify(rows, null, 2));
@@ -142,18 +137,14 @@ program
   .description('CVE 통계')
   .action(() => {
     try {
-      const total = (db.prepare('SELECT COUNT(*) as count FROM cve').get() as any).count;
-      const bySeverity = db.prepare(
-        'SELECT severity, COUNT(*) as count FROM cve GROUP BY severity ORDER BY severity'
-      ).all() as any[];
+      const { total, stats } = repo.getStats();
 
       console.log(chalk.bold('\n📊 CVE 통계\n'));
       console.log(`${chalk.cyan('전체 CVE 수')}: ${total}`);
-      console.log(`\n${ chalk.gray('위험도별 분포:')}`);
+      console.log(`\n${chalk.gray('위험도별 분포:')}`);
 
-      bySeverity.forEach((row: any) => {
-        const iconMap: Record<string, string> = { '긴급': '🔴', '높음': '🟠', '보통': '🟡', '낮음': '🟢' };
-        const icon = iconMap[row.severity] || '⚪';
+      stats.forEach((row: any) => {
+        const icon = severityIcon(row.severity);
         console.log(`  ${icon} ${row.severity.padEnd(4)} : ${String(row.count).padStart(3)}건`);
       });
       console.log('');
@@ -163,11 +154,18 @@ program
     }
   });
 
+// --- 유틸 함수 ---
+
 function severityColor(s: string): 'red' | 'yellow' | 'green' | 'white' {
   if (s === '긴급') return 'red';
   if (s === '높음') return 'yellow';
   if (s === '보통') return 'green';
   return 'white';
+}
+
+function severityIcon(s: string): string {
+  const map: Record<string, string> = { '긴급': '🔴', '높음': '🟠', '보통': '🟡', '낮음': '🟢' };
+  return map[s] || '⚪';
 }
 
 function severityBadge(s: string): string {

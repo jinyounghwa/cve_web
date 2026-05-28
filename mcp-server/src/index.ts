@@ -1,11 +1,19 @@
+// ============================================================================
+// CVE Security Agent MCP Server
+// 커네빈 Complicated 영역: ICveRepository 인터페이스에만 의존
+// ============================================================================
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import Database from 'better-sqlite3';
 import path from 'path';
+import {
+  createReadOnlyRepository,
+  type ICveRepository,
+} from 'shared';
 
 const dbPath = process.env.CVE_DB_PATH || path.join(__dirname, '..', '..', 'crawler', 'cve.db');
-const db: Database.Database = new Database(dbPath, { readonly: true });
+const repo: ICveRepository = createReadOnlyRepository(dbPath);
 
 const server = new Server(
   { name: 'cve-security-agent', version: '1.0.0' },
@@ -71,20 +79,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const count = (args as any)?.count ?? 10;
       const severity = (args as any)?.severity;
 
-      let query = 'SELECT cve_id, title, severity, published_at, detail_url, raw_solution FROM cve';
-      const params: any[] = [];
+      const rows = severity
+        ? repo.findBySeverity(severity, count)
+        : repo.findAll(count);
 
-      if (severity) {
-        query += ' WHERE severity = ?';
-        params.push(severity);
-      }
+      // MCP 응답에 필요한 필드만 추출
+      const filtered = rows.map(r => ({
+        cve_id: r.cve_id,
+        title: r.title,
+        severity: r.severity,
+        published_at: r.published_at,
+        detail_url: r.detail_url,
+        raw_solution: r.raw_solution,
+      }));
 
-      query += ' ORDER BY created_at DESC LIMIT ?';
-      params.push(count);
-
-      const rows = db.prepare(query).all(...params);
       return {
-        content: [{ type: 'text', text: JSON.stringify(rows, null, 2) }]
+        content: [{ type: 'text', text: JSON.stringify(filtered, null, 2) }]
       };
     }
 
@@ -97,7 +107,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      const row = db.prepare('SELECT * FROM cve WHERE cve_id = ?').get(cveId);
+      const row = repo.findById(cveId);
 
       if (!row) {
         return {
@@ -113,15 +123,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === 'get_patch_context') {
       const severityMin = (args as any)?.severity_min ?? '높음';
       const severities = severityMin === '긴급' ? ['긴급'] : ['긴급', '높음'];
-      const placeholders = severities.map(() => '?').join(',');
 
-      const rows = db
-        .prepare(
-          `SELECT cve_id, title, severity, published_at, detail_url, raw_solution FROM cve
-           WHERE severity IN (${placeholders})
-           ORDER BY created_at DESC LIMIT 50`
-        )
-        .all(...severities) as any[];
+      const rows = repo.findBySeverities(severities, 50);
 
       const context =
         `# 프로젝트 보안 패치 필요 목록\n\n` +

@@ -1,112 +1,131 @@
+// ============================================================================
+// 크롤러 스케줄러
+// 커네빈 Complex 영역: 이벤트 기반 분리, 헥사고날 아키텍처
+// ============================================================================
+
+import path from 'path';
 import cron from 'node-cron';
-import { fetchCisaCsv, parseCsv, calcSeverity } from './cisa-scraper';
-import { db } from './db';
+import {
+  createRepository,
+  calcSeverity,
+  parseCsv,
+  EventBus,
+  type ICveRepository,
+  type UpsertParams,
+  type CisaCsvItem,
+} from 'shared';
+import { fetchCisaCsv } from './cisa-scraper';
 import { generateReport } from './report-generator';
 
-export function startScheduler() {
+export interface SchedulerDeps {
+  eventBus: EventBus;
+  /** 테스트/단독 실행 시 주입 가능 (기본: shared SqliteRepository) */
+  repository?: ICveRepository;
+}
+
+export function startScheduler(deps: SchedulerDeps) {
+  const { eventBus } = deps;
   const interval = process.env.CRAWL_INTERVAL_HOURS || '2';
   const cronExpr = `0 */${interval} * * *`;
 
   console.log(`[CVE-Agent] 크롤러 스케줄러 시작 (${interval}시간 간격)`);
 
-  cron.schedule(cronExpr, async () => {
-    await runCrawl();
-  });
+  cron.schedule(cronExpr, () => runCrawl(deps));
 
   // 초기 실행 (1초 후)
-  setTimeout(() => runCrawl(), 1000);
+  setTimeout(() => runCrawl(deps), 1000);
 }
 
-export async function runCrawl() {
+export async function runCrawl(deps: SchedulerDeps) {
+  const { eventBus } = deps;
+
   console.log('[CVE-Agent] 크롤링 시작:', new Date().toISOString());
+  eventBus.emit('crawl:started');
 
   try {
-    // 1. CSV 다운로드
+    // 1. CSV 다운로드 (Chaotic 영역 — 서킷 브레이커 보호)
     console.log('[CVE-Agent] CISA KEV CSV 다운로드 중...');
     const csvText = await fetchCisaCsv();
-    console.log(`[CVE-Agent] CSV 다운로드 완료 (${(csvText.length / 1024).toFixed(0)} KB)`);
 
-    // 2. CSV 파싱
+    if (!csvText) {
+      console.warn('[CVE-Agent] CSV 데이터 없음 (서킷 브레이커 또는 네트워크 장애)');
+      eventBus.emit('crawl:error', { reason: 'empty_csv' });
+      return;
+    }
+
+    console.log(`[CVE-Agent] CSV 다운로드 완료 (${(csvText.length / 1024).toFixed(0)} KB)`);
+    eventBus.emit('crawl:csv_downloaded', { size: csvText.length });
+
+    // 2. CSV 파싱 (Clear 영역 — 순수 함수)
     const items = parseCsv(csvText);
     console.log(`[CVE-Agent] ${items.length}개 CVE 항목 파싱 완료`);
 
-    // 3. DB 저장 (upsert)
-    let newCount = 0;
-    let updateCount = 0;
-    let skipCount = 0;
+    // 3. DB 저장 (Complicated 영역 — 인터페이스 기반)
+    const dbPath = process.env.CVE_DB_PATH || path.join(__dirname, '..', 'cve.db');
+    const repo = deps.repository ?? createRepository(dbPath);
 
-    const upsertStmt = db.prepare(`
-      INSERT INTO cve (cve_id, title, severity, published_at, detail_url, raw_solution, kor_summary,
-                       vendor_project, product, due_date, description, ransomware_use, notes, cwes, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-      ON CONFLICT(cve_id) DO UPDATE SET
-        title = excluded.title,
-        severity = excluded.severity,
-        published_at = excluded.published_at,
-        raw_solution = excluded.raw_solution,
-        vendor_project = excluded.vendor_project,
-        product = excluded.product,
-        due_date = excluded.due_date,
-        description = excluded.description,
-        ransomware_use = excluded.ransomware_use,
-        notes = excluded.notes,
-        cwes = excluded.cwes
-    `);
+    const upsertItems: UpsertParams[] = items.map(mapToUpsert);
+    const result = repo.upsertMany(upsertItems);
 
-    const checkExisting = db.prepare('SELECT id FROM cve WHERE cve_id = ?');
-
-    const insertMany = db.transaction(() => {
-      for (const item of items) {
-        if (!item.cveID || !item.cveID.startsWith('CVE-')) continue;
-
-        const severity = calcSeverity(item.dueDate, item.dateAdded, item.knownRansomwareCampaignUse);
-        const cveUrl = `https://nvd.nist.gov/vuln/detail/${item.cveID}`;
-        const exists = checkExisting.get(item.cveID);
-
-        upsertStmt.run(
-          item.cveID,
-          item.vulnerabilityName || item.cveID,
-          severity,
-          item.dateAdded,
-          cveUrl,
-          item.requiredAction || '',
-          '',  // kor_summary
-          item.vendorProject || '',
-          item.product || '',
-          item.dueDate || '',
-          item.shortDescription || '',
-          item.knownRansomwareCampaignUse || '',
-          item.notes || '',
-          item.cwes || '',
-        );
-
-        if (exists) {
-          updateCount++;
-        } else {
-          newCount++;
-        }
-      }
+    console.log(`[CVE-Agent] 크롤링 완료: 신규 ${result.newCount}개, 업데이트 ${result.updateCount}개`);
+    eventBus.emit('cve:upserted', {
+      newCount: result.newCount,
+      updateCount: result.updateCount,
     });
 
-    insertMany();
-
-    console.log(`[CVE-Agent] 크롤링 완료: 신규 ${newCount}개, 업데이트 ${updateCount}개`);
-
-    // 4. 보고서 생성
+    // 4. 보고서 생성 (이벤트 분리 — 실패해도 크롤링에 영향 없음)
     try {
-      await generateReport();
+      const reportPath = await generateReport(repo);
+      eventBus.emit('report:generated', { path: reportPath });
     } catch (reportError) {
       console.error('[CVE-Agent] 보고서 생성 오류:', reportError);
     }
+
+    eventBus.emit('crawl:completed', {
+      total: items.length,
+      newCount: result.newCount,
+      updateCount: result.updateCount,
+    });
+
+    // deps에서 주입받지 않은 자체 생성 repo는 닫기
+    if (!deps.repository) repo.close();
   } catch (error) {
     console.error('[CVE-Agent] 크롤링 오류:', error);
+    eventBus.emit('crawl:error', { error });
   }
+}
+
+/** CisaCsvItem → UpsertParams 매핑 */
+function mapToUpsert(item: CisaCsvItem): UpsertParams {
+  return {
+    cveId: item.cveID,
+    title: item.vulnerabilityName || item.cveID,
+    severity: calcSeverity(item.dueDate, item.dateAdded, item.knownRansomwareCampaignUse),
+    publishedAt: item.dateAdded,
+    detailUrl: `https://nvd.nist.gov/vuln/detail/${item.cveID}`,
+    rawSolution: item.requiredAction || '',
+    korSummary: '',
+    vendorProject: item.vendorProject || '',
+    product: item.product || '',
+    dueDate: item.dueDate || '',
+    description: item.shortDescription || '',
+    ransomwareUse: item.knownRansomwareCampaignUse || '',
+    notes: item.notes || '',
+    cwes: item.cwes || '',
+  };
 }
 
 // 단독 실행 지원
 if (require.main === module) {
-  runCrawl().then(() => {
-    console.log('[CVE-Agent] 1회 크롤링 완료');
+  const { EventBus } = require('shared');
+  const standaloneBus = new EventBus();
+
+  standaloneBus.on('crawl:completed', (e: any) => {
+    console.log(`[CVE-Agent] 1회 크롤링 완료: 신규 ${e.data.newCount}, 업데이트 ${e.data.updateCount}`);
+  });
+
+  runCrawl({ eventBus: standaloneBus }).then(() => {
+    console.log('[CVE-Agent] 종료');
     process.exit(0);
   });
 }
